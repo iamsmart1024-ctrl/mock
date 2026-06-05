@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#fbf6e9" />
+<title>풀이 시간 측정</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@100;200;300;400;500;600;700;800;900&family=Noto+Serif+KR:wght@200;300;400;500;600;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper:        #fbf6e9;
+    --paper-warm:   #f5efde;
+    --paper-edge:   #ebe2c5;
+    --ink:          #0c0c14;
+    --ink-2:        #2a2a36;
+    --ink-mute:     #767368;
+    --ink-faint:    #a8a596;
+    --line:         rgba(12, 12, 20, 0.14);
+    --line-bold:    rgba(12, 12, 20, 0.38);
+    --line-strong:  #0c0c14;
+    --red:          #b91d1d;
+    --red-deep:     #8c1414;
+    --red-soft:     rgba(185, 29, 29, 0.07);
+
+    --serif:        "Hahmlet", "Noto Serif KR", serif;
+    --korean-serif: "Noto Serif KR", "Hahmlet", serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow-x: hidden; }
+
+  body {
+    font-family: var(--serif);
+    color: var(--ink);
+    background: var(--paper);
+    min-height: 100dvh;
+    font-weight: 400;
+    line-height: 1.5;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    position: relative;
+    overflow-x: hidden;
+    font-feature-settings: "kern" 1;
+  }
+
+  /* Exam paper texture — subtle grain + faint horizontal rules */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.25 0 0 0 0 0.15 0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: 0.10;
+    pointer-events: none;
+    z-index: -1;
+  }
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 20%, transparent 60%, rgba(120, 90, 40, 0.06) 100%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* ---------- Layout ---------- */
+  .app {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 18px 22px 36px;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .view { display: none; flex-direction: column; flex: 1; }
+  .view.active { display: flex; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ============================================
+     Exam Paper Header
+     ============================================ */
+  .paper-head {
+    margin-bottom: 28px;
+    padding-top: 8px;
+  }
+
+  /* Top form row — like exam paper metadata */
+  .form-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.18em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line-strong);
+    font-weight: 400;
+  }
+  .form-row .form-cell { display: flex; align-items: baseline; gap: 8px; }
+  .form-row .form-cell strong {
+    color: var(--ink);
+    font-weight: 600;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: 0.05em;
+  }
+
+  /* Title block */
+  .title-block {
+    border-bottom: 3px double var(--line-strong);
+    padding: 26px 0 22px;
+    text-align: center;
+    position: relative;
+  }
+  .title-block::before, .title-block::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    height: 12px;
+    background: var(--ink);
+    transform: translateX(-50%);
+  }
+  .title-block::before { top: 8px; }
+  .title-block::after { display: none; }
+
+  .seal {
+    display: inline-block;
+    border: 1.5px solid var(--red);
+    color: var(--red);
+    padding: 3px 10px;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    margin-bottom: 14px;
+    font-weight: 500;
+    transform: rotate(-1deg);
+  }
+
+  h1.title {
+    font-family: var(--korean-serif);
+    font-weight: 700;
+    font-size: clamp(34px, 9vw, 44px);
+    line-height: 1.1;
+    letter-spacing: 0.15em;
+    color: var(--ink);
+  }
+  .title-en {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 300;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--ink-mute);
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+
+  /* ============================================
+     Section header — exam style
+     ============================================ */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 26px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-head .num {
+    font-family: var(--korean-serif);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--red);
+    letter-spacing: 0.05em;
+  }
+  .section-head .label {
+    font-family: var(--korean-serif);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    letter-spacing: 0.08em;
+  }
+  .section-head .hint {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.1em;
+  }
+
+  /* ============================================
+     Wheel Picker
+     ============================================ */
+  .picker-wrap {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 18px 0 0;
+    position: relative;
+    box-shadow:
+      0 1px 0 var(--paper-edge),
+      0 2px 0 var(--ink),
+      0 6px 12px rgba(12, 12, 20, 0.06);
+  }
+  .picker-wrap::before {
+    content: "TIME SETTING";
+    position: absolute;
+    top: -8px; left: 18px;
+    background: var(--paper);
+    padding: 0 8px;
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--ink-mute);
+  }
+
+  .picker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 8px 0 0;
+  }
+
+  /* Selection band — the horizontal rules that mark the center */
+  .picker::before, .picker::after {
+    content: "";
+    position: absolute;
+    left: 16px; right: 16px;
+    height: 1px;
+    background: var(--ink);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .picker::before { top: calc(50% - 30px); }
+  .picker::after  { top: calc(50% + 30px); }
+
+  .picker-col {
+    width: 96px;
+    height: 260px;
+    position: relative;
+  }
+  .picker-wheel {
+    height: 100%;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(0,0,0,0.15) 12%,
+      black 40%,
+      black 60%,
+      rgba(0,0,0,0.15) 88%,
+      transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(0,0,0,0.15) 12%,
+      black 40%,
+      black 60%,
+      rgba(0,0,0,0.15) 88%,
+      transparent 100%);
+  }
+  .picker-wheel::-webkit-scrollbar { display: none; }
+
+  .picker-item {
+    height: 52px;
+    scroll-snap-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    font-size: 32px;
+    font-weight: 300;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    transition: opacity 0.15s, font-weight 0.15s;
+    user-select: none;
+  }
+  .picker-item.selected {
+    font-weight: 600;
+  }
+  .picker-spacer { height: 52px; }
+
+  .picker-sep {
+    font-family: var(--serif);
+    font-size: 30px;
+    font-weight: 200;
+    color: var(--ink-mute);
+    padding: 0 6px;
+    align-self: center;
+    margin-top: -8px;
+  }
+  .picker-unit {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 6px 0 14px;
+    font-family: var(--korean-serif);
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--ink-mute);
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+  }
+  .picker-unit span { width: 96px; text-align: center; }
+
+  /* ============================================
+     Options
+     ============================================ */
+  .opts-wrap {
+    background: #fff;
+    border: 1px solid var(--line-bold);
+    border-radius: 4px;
+    padding: 4px 16px;
+  }
+  .opt {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .opt:last-child { border-bottom: none; }
+  .opt-text { flex: 1; padding-right: 14px; }
+  .opt-text strong {
+    font-family: var(--korean-serif);
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--ink);
+    display: block;
+    letter-spacing: 0.02em;
+  }
+  .opt-text small {
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-top: 2px;
+    display: block;
+    letter-spacing: 0.02em;
+  }
+
+  /* Switch — exam mark style (filled square vs empty square) */
+  .switch {
+    position: relative;
+    width: 50px; height: 26px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .switch input { display: none; }
+  .switch .track {
+    position: absolute; inset: 0;
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .switch .track::before {
+    content: "";
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    transition: all 0.2s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  .switch input:checked + .track {
+    background: var(--ink);
+  }
+  .switch input:checked + .track::before {
+    background: var(--red);
+    border-color: var(--red);
+    left: 26px;
+  }
+
+  /* ============================================
+     Start button
+     ============================================ */
+  .start-area {
+    margin-top: 32px;
+  }
+  .btn-start {
+    width: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1.5px solid var(--ink);
+    padding: 22px;
+    font-family: var(--korean-serif);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.4em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-radius: 2px;
+    position: relative;
+    box-shadow: 4px 4px 0 0 var(--red);
+  }
+  .btn-start:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0 var(--red);
+  }
+  .btn-start:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 0 var(--red);
+  }
+  .btn-start .arrow {
+    color: var(--red);
+    margin-left: 8px;
+    letter-spacing: 0;
+  }
+
+  .kbd-hint {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.15em;
+  }
+  .kbd-hint kbd {
+    background: #fff;
+    border: 1px solid var(--line-bold);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    padding: 1px 7px;
+    font-family: var(--serif);
+    font-size: 10px;
+    margin: 0 2px;
+    color: var(--ink);
+  }
+
+  /* ============================================
+     Running view
+     ============================================ */
+  .run-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 4px 14px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 0;
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.18em;
+  }
+  .run-head .run-status {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .run-head .run-status .dot {
+    width: 7px; height: 7px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .target-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+  }
+  .target-strip .val {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+
+  .timer-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    text-align: center;
+  }
+  .timer-label {
+    font-family: var(--korean-serif);
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.5em;
+    color: var(--ink-mute);
+    margin-bottom: 22px;
+    text-transform: none;
+    transition: color 0.3s;
+  }
+  .timer-display {
+    font-family: var(--serif);
+    font-weight: 200;
+    font-size: clamp(96px, 26vw, 156px);
+    line-height: 0.9;
+    color: var(--ink);
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+  .timer-display .sep {
+    color: var(--ink-faint);
+    margin: 0 -0.04em;
+    font-weight: 100;
+  }
+  .timer-display .sign {
+    color: var(--red);
+    font-weight: 400;
+    margin-right: 0.04em;
+  }
+  .timer-foot {
+    margin-top: 22px;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+    font-feature-settings: "tnum" 1;
+  }
+  .timer-foot .arrow { color: var(--red); margin: 0 6px; }
+
+  /* States */
+  .timer-area.warning .timer-display { color: var(--red); animation: shake 0.6s infinite; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-1px); }
+    75% { transform: translateX(1px); }
+  }
+  .timer-area.over .timer-display { color: var(--red); }
+  .timer-area.over .timer-label::after { content: " · 초과"; color: var(--red); }
+  .timer-area.expired .timer-display { color: var(--red); }
+  .timer-area.expired .timer-label { color: var(--red); font-weight: 700; letter-spacing: 0.6em; }
+  .timer-area.paused .timer-display { opacity: 0.4; }
+  .timer-area.paused .timer-label::after { content: " · 일시정지"; color: var(--ink-mute); }
+
+  /* Actions */
+  .run-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 20px 0 8px;
+    border-top: 2px solid var(--ink);
+  }
+  .btn-act {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    color: var(--ink);
+    padding: 18px;
+    font-family: var(--korean-serif);
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .btn-act:hover { background: var(--paper-warm); }
+  .btn-act:active { transform: translateY(1px); }
+  .btn-act.primary {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .btn-act.primary:hover { background: var(--red); border-color: var(--red); }
+  .btn-act.danger {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-act.danger:hover { background: var(--red); color: #fff; }
+
+  /* ============================================
+     Summary view
+     ============================================ */
+  .summary-head {
+    text-align: center;
+    padding: 30px 0 26px;
+    border-bottom: 3px double var(--line-strong);
+    margin-bottom: 30px;
+  }
+  .summary-head .seal {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+  .summary-head h2 {
+    font-family: var(--korean-serif);
+    font-size: clamp(32px, 8vw, 40px);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    line-height: 1.1;
+  }
+  .summary-head .sub {
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-mute);
+    letter-spacing: 0.2em;
+    margin-top: 10px;
+  }
+
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 26px;
+    background: #fff;
+    border: 1.5px solid var(--ink);
+  }
+  .result-table tr { border-bottom: 1px solid var(--line); }
+  .result-table tr:last-child { border-bottom: 1.5px solid var(--ink); }
+  .result-table th {
+    text-align: left;
+    padding: 16px 18px;
+    font-family: var(--korean-serif);
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink-mute);
+    letter-spacing: 0.2em;
+    background: var(--paper-warm);
+    width: 40%;
+    border-right: 1px solid var(--line);
+  }
+  .result-table td {
+    padding: 16px 18px;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .result-table td.verdict {
+    font-size: 15px;
+    font-family: var(--korean-serif);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+  .verdict.under { color: var(--ink); }
+  .verdict.under::before { content: "○ "; color: var(--ink); }
+  .verdict.over { color: var(--red); }
+  .verdict.over::before { content: "× "; color: var(--red); }
+  .verdict.exact { color: var(--ink); }
+  .verdict.exact::before { content: "△ "; color: var(--ink); }
+
+  .restart-area { margin-top: 8px; }
+
+  /* ============================================
+     Toast
+     ============================================ */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 22px;
+    border-radius: 2px;
+    border: 1px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--red);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.4, 1);
+    z-index: 100;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 380px) {
+    .app { padding: 14px 16px 30px; }
+    .picker-col { width: 80px; }
+    .picker-unit span { width: 80px; }
+    .picker-item { font-size: 28px; }
+    h1.title { letter-spacing: 0.1em; }
+  }
+</style>
+</head>
+<body>
+
+<main class="app">
+
+  <!-- ============== SETUP VIEW ============== -->
+  <section id="setupView" class="view active">
+
+    <header class="paper-head">
+      <div class="form-row">
+        <div class="form-cell">응시일 · <strong id="todayDate">—</strong></div>
+        <div class="form-cell">기록번호 · <strong>No. 001</strong></div>
+      </div>
+      <div class="title-block">
+        <div class="seal">대 한 민 국 수 험 생</div>
+        <h1 class="title">풀 이 시 간 측 정</h1>
+        <div class="title-en">Problem Solving Timer</div>
+      </div>
+    </header>
+
+    <!-- Time Picker -->
+    <div class="section-head">
+      <span class="num">一.</span>
+      <span class="label">목표 시간 설정</span>
+      <span class="hint">스크롤하여 선택</span>
+    </div>
+    <div class="picker-wrap">
+      <div class="picker">
+        <div class="picker-col">
+          <div class="picker-wheel" id="minWheel"></div>
+        </div>
+        <div class="picker-sep">:</div>
+        <div class="picker-col">
+          <div class="picker-wheel" id="secWheel"></div>
+        </div>
+      </div>
+      <div class="picker-unit">
+        <span>분</span>
+        <span>초</span>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="section-head">
+      <span class="num">二.</span>
+      <span class="label">측정 설정</span>
+    </div>
+    <div class="opts-wrap">
+      <div class="opt">
+        <div class="opt-text">
+          <strong>시간 초과 후 계속 측정</strong>
+          <small>목표 시간이 끝나도 멈추지 않고 초과 시간을 위로 카운트합니다</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="optCountUp" checked />
+          <span class="track"></span>
+        </label>
+      </div>
+      <div class="opt">
+        <div class="opt-text">
+          <strong>만료 알림음</strong>
+          <small>목표 시간 도달 시 잔잔한 차임 소리</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="optSound" checked />
+          <span class="track"></span>
+        </label>
+      </div>
+      <div class="opt">
+        <div class="opt-text">
+          <strong>진동 알림</strong>
+          <small>모바일에서 만료 시 진동 추가</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="optVibrate" checked />
+          <span class="track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Start -->
+    <div class="start-area">
+      <button class="btn-start" id="startBtn">시 작 <span class="arrow">▶</span></button>
+      <div class="kbd-hint">
+        <kbd>Space</kbd> 시작/정지 · <kbd>Esc</kbd> 종료
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== RUN VIEW ============== -->
+  <section id="runView" class="view">
+    <div class="run-head">
+      <div class="run-status"><span class="dot"></span><span>측정 중</span></div>
+      <div>화면 잠금 방지 · <span id="wakeLockStatus">활성</span></div>
+    </div>
+
+    <div class="target-strip">
+      <span>목표 시간</span>
+      <span class="val" id="targetVal">03:00</span>
+    </div>
+
+    <div class="timer-area" id="timerArea">
+      <div class="timer-label" id="timerLabel">남은 시간</div>
+      <div class="timer-display" id="timerDisplay">03<span class="sep">:</span>00</div>
+      <div class="timer-foot">측정 시작 <span class="arrow">▸</span> <span id="startedAtDisplay">—</span></div>
+    </div>
+
+    <div class="run-actions">
+      <button class="btn-act" id="pauseBtn">일시정지</button>
+      <button class="btn-act danger" id="endBtn">종 료</button>
+    </div>
+  </section>
+
+  <!-- ============== SUMMARY VIEW ============== -->
+  <section id="summaryView" class="view">
+    <header class="summary-head">
+      <div class="seal" id="summarySeal">측 정 완 료</div>
+      <h2 id="summaryHeading">풀이 결과</h2>
+      <div class="sub">Result of Measurement</div>
+    </header>
+
+    <table class="result-table">
+      <tr>
+        <th>목표 시간</th>
+        <td id="resTarget">00:00</td>
+      </tr>
+      <tr>
+        <th>실제 풀이 시간</th>
+        <td id="resActual">00:00</td>
+      </tr>
+      <tr>
+        <th>차이</th>
+        <td id="resDiff">+00:00</td>
+      </tr>
+      <tr>
+        <th>판정</th>
+        <td class="verdict" id="resVerdict">목표 내 완료</td>
+      </tr>
+    </table>
+
+    <div class="restart-area">
+      <button class="btn-start" id="restartBtn">다 시 측 정 <span class="arrow">↻</span></button>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ============== State ==============
+  const state = {
+    targetSec: 180,      // selected target in seconds
+    startedAt: null,
+    pausedAt: null,
+    accumPausedMs: 0,
+    intervalId: null,
+    audioCtx: null,
+    wakeLock: null,
+    chimeFired: false,
+    expired: false,
+    countUp: true,
+    actualSec: 0,        // recorded actual time at end
+  };
+
+  // ============== DOM helpers ==============
+  const $ = (id) => document.getElementById(id);
+  const minWheel = $("minWheel");
+  const secWheel = $("secWheel");
+  const startBtn = $("startBtn");
+  const pauseBtn = $("pauseBtn");
+  const endBtn = $("endBtn");
+  const restartBtn = $("restartBtn");
+  const timerArea = $("timerArea");
+  const timerDisplay = $("timerDisplay");
+  const timerLabel = $("timerLabel");
+  const targetVal = $("targetVal");
+  const startedAtDisplay = $("startedAtDisplay");
+  const wakeLockStatus = $("wakeLockStatus");
+  const setupView = $("setupView");
+  const runView = $("runView");
+  const summaryView = $("summaryView");
+  const optCountUp = $("optCountUp");
+  const optSound = $("optSound");
+  const optVibrate = $("optVibrate");
+  const toast = $("toast");
+  const todayDate = $("todayDate");
+
+  // Date stamp
+  const now = new Date();
+  todayDate.textContent =
+    `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,"0")}.${String(now.getDate()).padStart(2,"0")}`;
+
+  // ============== Toast ==============
+  let toastTimer;
+  function showToast(msg, ms = 2200) {
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), ms);
+  }
+
+  // ============== Wheel Picker ==============
+  const ITEM_H = 52;
+  const SPACER_COUNT = 2; // items worth of spacers (matches mask)
+
+  function buildWheel(wheelEl, count, formatter) {
+    const items = [];
+    for (let i = 0; i < SPACER_COUNT; i++) items.push(`<div class="picker-spacer"></div>`);
+    for (let i = 0; i < count; i++) {
+      items.push(`<div class="picker-item" data-val="${i}">${formatter(i)}</div>`);
+    }
+    for (let i = 0; i < SPACER_COUNT; i++) items.push(`<div class="picker-spacer"></div>`);
+    wheelEl.innerHTML = items.join("");
+  }
+
+  function updateSelected(wheelEl) {
+    const idx = Math.round(wheelEl.scrollTop / ITEM_H);
+    const items = wheelEl.querySelectorAll(".picker-item");
+    items.forEach((it, i) => it.classList.toggle("selected", i === idx));
+    return idx;
+  }
+
+  function setWheelValue(wheelEl, idx, smooth = false) {
+    wheelEl.scrollTo({ top: idx * ITEM_H, behavior: smooth ? "smooth" : "auto" });
+  }
+
+  function getWheelValue(wheelEl) {
+    return Math.round(wheelEl.scrollTop / ITEM_H);
+  }
+
+  // Build wheels: minutes 0–180, seconds 0–59
+  buildWheel(minWheel, 181, (i) => String(i));
+  buildWheel(secWheel, 60, (i) => String(i).padStart(2, "0"));
+
+  // Initial values: 3 minutes 00 seconds
+  setTimeout(() => {
+    setWheelValue(minWheel, 3);
+    setWheelValue(secWheel, 0);
+    updateSelected(minWheel);
+    updateSelected(secWheel);
+    updateTargetSec();
+  }, 50);
+
+  function updateTargetSec() {
+    const m = getWheelValue(minWheel);
+    const s = getWheelValue(secWheel);
+    state.targetSec = Math.max(1, m * 60 + s);
+  }
+
+  // Throttle scroll handler for snappy feedback
+  let minRaf = null;
+  minWheel.addEventListener("scroll", () => {
+    if (minRaf) cancelAnimationFrame(minRaf);
+    minRaf = requestAnimationFrame(() => {
+      updateSelected(minWheel);
+      updateTargetSec();
+    });
+  }, { passive: true });
+
+  let secRaf = null;
+  secWheel.addEventListener("scroll", () => {
+    if (secRaf) cancelAnimationFrame(secRaf);
+    secRaf = requestAnimationFrame(() => {
+      updateSelected(secWheel);
+      updateTargetSec();
+    });
+  }, { passive: true });
+
+  // Click to select item directly
+  function wheelClickHandler(wheelEl) {
+    return (e) => {
+      const item = e.target.closest(".picker-item");
+      if (!item) return;
+      const idx = parseInt(item.dataset.val, 10);
+      setWheelValue(wheelEl, idx, true);
+    };
+  }
+  minWheel.addEventListener("click", wheelClickHandler(minWheel));
+  secWheel.addEventListener("click", wheelClickHandler(secWheel));
+
+  // ============== Audio ==============
+  function getAudioCtx() {
+    if (!state.audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AC();
+    }
+    if (state.audioCtx.state === "suspended") state.audioCtx.resume();
+    return state.audioCtx;
+  }
+
+  // Bell-like chime — sine tones with bell envelope
+  function playChime() {
+    if (!optSound.checked) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.value = 0.5;
+    master.connect(ctx.destination);
+
+    [880, 1320, 1760, 2640].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const peak = 0.45 / (i + 1);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(peak, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+      osc.connect(gain).connect(master);
+      osc.start(now);
+      osc.stop(now + 2.3);
+    });
+  }
+
+  function vibratePattern(pattern) {
+    if (!optVibrate.checked) return;
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (_) {} }
+  }
+
+  // ============== Wake Lock ==============
+  async function acquireWakeLock() {
+    if (!("wakeLock" in navigator)) {
+      wakeLockStatus.textContent = "미지원";
+      return;
+    }
+    try {
+      state.wakeLock = await navigator.wakeLock.request("screen");
+      wakeLockStatus.textContent = "활성";
+      state.wakeLock.addEventListener("release", () => {
+        state.wakeLock = null;
+        wakeLockStatus.textContent = "해제됨";
+      });
+    } catch (e) {
+      wakeLockStatus.textContent = "실패";
+      console.warn("wake lock failed:", e);
+    }
+  }
+  async function releaseWakeLock() {
+    if (state.wakeLock) {
+      try { await state.wakeLock.release(); } catch (_) {}
+      state.wakeLock = null;
+    }
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible"
+        && runView.classList.contains("active")
+        && state.startedAt != null) {
+      await acquireWakeLock();
+    }
+  });
+
+  // ============== Timer ==============
+  function pad2(n) { return n.toString().padStart(2, "0"); }
+  function fmtMMSS(sec) {
+    const s = Math.max(0, Math.floor(sec));
+    return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`;
+  }
+  function fmtMMSSWithSep(sec) {
+    const s = Math.max(0, Math.floor(sec));
+    return `${pad2(Math.floor(s / 60))}<span class="sep">:</span>${pad2(s % 60)}`;
+  }
+
+  function elapsedMs() {
+    if (state.startedAt == null) return 0;
+    const end = state.pausedAt != null ? state.pausedAt : Date.now();
+    return end - state.startedAt - state.accumPausedMs;
+  }
+
+  function tick() {
+    const ms = elapsedMs();
+    const elapsedSec = ms / 1000;
+    const remaining = state.targetSec - elapsedSec;
+
+    if (remaining > 0) {
+      // counting down
+      timerLabel.textContent = "남은 시간";
+      timerDisplay.innerHTML = fmtMMSSWithSep(remaining);
+      timerArea.classList.toggle("warning", remaining <= 10 && !state.pausedAt);
+      timerArea.classList.remove("over", "expired");
+    } else {
+      // target reached
+      if (!state.chimeFired) {
+        state.chimeFired = true;
+        playChime();
+        vibratePattern([260, 130, 260, 130, 260]);
+      }
+      timerArea.classList.remove("warning");
+
+      if (state.countUp) {
+        // continue counting up
+        const over = -remaining;
+        timerLabel.textContent = "초 과 시 간";
+        timerDisplay.innerHTML = `<span class="sign">+</span>${fmtMMSSWithSep(over)}`;
+        timerArea.classList.add("over");
+        timerArea.classList.remove("expired");
+      } else {
+        // freeze at expiry
+        timerLabel.textContent = "시 간 종 료";
+        timerDisplay.innerHTML = `00<span class="sep">:</span>00`;
+        timerArea.classList.add("expired");
+        timerArea.classList.remove("over");
+        // stop interval (we don't need to keep ticking)
+        if (!state.expired) {
+          state.expired = true;
+          clearInterval(state.intervalId);
+          state.intervalId = null;
+          // remember actual end (=target)
+          state.startedAt = Date.now() - state.targetSec * 1000;
+          state.accumPausedMs = 0;
+          state.pausedAt = null;
+        }
+      }
+    }
+
+    timerArea.classList.toggle("paused", state.pausedAt != null);
+  }
+
+  async function beginMeasurement() {
+    // Snap wheel values into target
+    updateTargetSec();
+    if (state.targetSec < 1) {
+      showToast("시간을 1초 이상으로 설정하세요");
+      return;
+    }
+
+    // Prime audio with this user gesture
+    try { getAudioCtx(); } catch (_) {}
+
+    state.countUp = optCountUp.checked;
+    state.startedAt = Date.now();
+    state.pausedAt = null;
+    state.accumPausedMs = 0;
+    state.chimeFired = false;
+    state.expired = false;
+
+    targetVal.textContent = fmtMMSS(state.targetSec);
+    const d = new Date(state.startedAt);
+    startedAtDisplay.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+
+    pauseBtn.textContent = "일시정지";
+    timerArea.classList.remove("over", "warning", "paused", "expired");
+
+    showView(runView);
+    await acquireWakeLock();
+
+    tick();
+    if (state.intervalId) clearInterval(state.intervalId);
+    state.intervalId = setInterval(tick, 100);
+  }
+
+  function togglePause() {
+    if (state.expired) return; // can't pause after frozen expiry
+    if (state.startedAt == null) return;
+    if (state.pausedAt == null) {
+      state.pausedAt = Date.now();
+      pauseBtn.textContent = "계 속";
+    } else {
+      state.accumPausedMs += Date.now() - state.pausedAt;
+      state.pausedAt = null;
+      pauseBtn.textContent = "일시정지";
+    }
+  }
+
+  async function endMeasurement() {
+    // Compute final elapsed
+    let finalSec;
+    if (state.expired) {
+      finalSec = state.targetSec;
+    } else {
+      finalSec = elapsedMs() / 1000;
+    }
+    state.actualSec = finalSec;
+
+    if (state.intervalId) clearInterval(state.intervalId);
+    state.intervalId = null;
+    state.startedAt = null;
+    state.pausedAt = null;
+    timerArea.classList.remove("over", "warning", "paused", "expired");
+
+    await releaseWakeLock();
+
+    if (finalSec < 1) {
+      // nothing measured, go back
+      showView(setupView);
+      showToast("측정이 너무 짧아 종료했습니다");
+      return;
+    }
+
+    renderSummary(finalSec, state.targetSec);
+    showView(summaryView);
+  }
+
+  function renderSummary(actualSec, targetSec) {
+    $("resTarget").textContent = fmtMMSS(targetSec);
+    $("resActual").textContent = fmtMMSS(actualSec);
+    const diff = actualSec - targetSec;
+    const diffAbs = Math.abs(diff);
+    if (diff > 0.5) {
+      $("resDiff").innerHTML = `<span style="color:var(--red)">+${fmtMMSS(diffAbs)}</span>`;
+      const v = $("resVerdict");
+      v.textContent = "목표 시간 초과";
+      v.className = "verdict over";
+      $("summaryHeading").textContent = "시간 초과";
+      $("summarySeal").textContent = "초 과";
+    } else if (diff < -0.5) {
+      $("resDiff").innerHTML = `−${fmtMMSS(diffAbs)}`;
+      const v = $("resVerdict");
+      v.textContent = "목표 내 완료";
+      v.className = "verdict under";
+      $("summaryHeading").textContent = "목표 달성";
+      $("summarySeal").textContent = "달 성";
+    } else {
+      $("resDiff").textContent = "정확";
+      const v = $("resVerdict");
+      v.textContent = "목표 시간 도달";
+      v.className = "verdict exact";
+      $("summaryHeading").textContent = "정시 완료";
+      $("summarySeal").textContent = "정 시";
+    }
+  }
+
+  // ============== View ==============
+  function showView(v) {
+    [setupView, runView, summaryView].forEach((s) => s.classList.remove("active"));
+    v.classList.add("active");
+  }
+
+  // ============== Bindings ==============
+  startBtn.addEventListener("click", beginMeasurement);
+  pauseBtn.addEventListener("click", togglePause);
+  endBtn.addEventListener("click", endMeasurement);
+  restartBtn.addEventListener("click", () => showView(setupView));
+
+  // Keyboard
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (setupView.classList.contains("active")) beginMeasurement();
+      else if (runView.classList.contains("active")) togglePause();
+      else if (summaryView.classList.contains("active")) showView(setupView);
+    } else if (e.code === "Escape") {
+      if (runView.classList.contains("active")) {
+        e.preventDefault();
+        endMeasurement();
+      }
+    }
+  });
+
+  // Prevent accidental close
+  window.addEventListener("beforeunload", (e) => {
+    if (state.startedAt != null) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
